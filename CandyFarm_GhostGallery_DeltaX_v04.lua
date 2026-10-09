@@ -243,23 +243,34 @@ local notice = text(pets,"Ghost targeting/defeat is best-effort.\nNo verified Ad
 notice.Position = UDim2.fromOffset(0, 110)
 notice.Size = UDim2.new(1,0,0,40)
 
--- // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ЛОГИКИ // --
+-- // ОБНОВЛЕННАЯ СИСТЕМА СКАНИРОВАНИЯ ИГРЫ // --
 
-local function getClosestGhost()
+local function getClosestGhostOrFurniture()
     local character = LocalPlayer.Character
     if not character then return nil end
     local root = character:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
 
     local closest, minDist = nil, math.huge
+    
+    -- Сканируем всё игровое поле на наличие объектов мини-игры
     for _, obj in pairs(Workspace:GetDescendants()) do
-        if obj:IsA("Model") and (string.find(obj.Name, "Ghost") or string.find(obj.Name, "Призрак")) then
-            local p = obj:FindFirstChildWhichIsA("BasePart")
+        local isValidTarget = false
+        -- Проверка 1: Летящие призраки или босс
+        if obj:IsA("Model") and (string.find(obj.Name, "Ghost") or string.find(obj.Name, "Boss") or obj:FindFirstChild("Ghost")) then
+            isValidTarget = true
+        -- Проверка 2: Одержимая подсвеченная мебель (внутри миниигры)
+        elseif obj:IsA("Model") and (obj:FindFirstChild("Highlight") or string.find(obj.Name, "Possessed") or obj:FindFirstChild("Furniture")) then
+            isValidTarget = true
+        end
+
+        if isValidTarget then
+            local p = obj:FindFirstChildWhichIsA("BasePart") or obj:FindFirstChildHorizontalAlignment()
             if p then
                 local dist = (root.Position - p.Position).Magnitude
-                if dist < minDist then
+                if dist < minDist and dist < 300 then -- Игнорируем объекты за пределами арены
                     minDist = dist
-                    closest = obj
+                    closest = p
                 end
             end
         end
@@ -271,13 +282,23 @@ local function teleportTo(position)
     local character = LocalPlayer.Character
     local root = character and character:FindFirstChild("HumanoidRootPart")
     if root then
-        root.CFrame = CFrame.new(position + Vector3.new(0, 3, 0))
+        root.CFrame = CFrame.new(position + Vector3.new(0, 4, 0))
     end
 end
-
 local function fireBlaster()
-    VirtualUser:CaptureController()
-    VirtualUser:Button1Down(Vector2.new(0,0), Workspace.CurrentCamera.CFrame)
+    local character = LocalPlayer.Character
+    if not character then return end
+    -- Авто-активация бластера, если он экипирован в руке
+    local tool = character:FindFirstChildOfClass("Tool")
+    if tool then
+        tool:Activate()
+    else
+        -- Если бластер в инвентаре, пытаемся взять его в руки
+        local backpackTool = LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+        if backpackTool then
+            backpackTool.Parent = character
+        end
+    end
     state.LastShot = tick()
 end
 
@@ -292,104 +313,105 @@ local function fireProximityPrompt(prompt)
 end
 
 -- // ГЛАВНЫЕ ПОТОКИ АВТОМАТИЗАЦИИ // --
-
 task.spawn(function()
     while state.Alive do
-        task.wait(0.1)
-        
+        task.wait(0.05) -- Увеличена скорость тиков для моментального реагирования аима
         if state.Hunt then
             if not state.Target or not state.Target:Parent() then
-            state.Target = getClosestGhost()
-        end
-
-        if state.Target then
-            local targetPart = state.Target:FindFirstChildWhichIsA("BasePart")
-            if targetPart and state.Teleport then
-                teleportTo(targetPart.Position + Vector3.new(0, 0, 4))
+                state.Target = getClosestGhostOrFurniture()
             end
-
-            if state.Shoot and tick() - state.LastShot > 0.5 then
-                local character = LocalPlayer.Character
-                local root = character and character:FindFirstChild("HumanoidRootPart")
-                if root and targetPart then
-                    root.CFrame = CFrame.new(root.Position, Vector3.new(targetPart.Position.X, root.Position.Y, targetPart.Position.Z))
-                    fireBlaster()
+            if state.Target then
+                if state.Teleport then
+                    -- Держим дистанцию над целью, чтобы не проваливаться сквозь карту
+                    teleportTo(state.Target.Position + Vector3.new(0, 2, 3))
+                end
+                if state.Shoot and tick() - state.LastShot > 0.3 then
+                    local character = LocalPlayer.Character
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        -- Моментальный и точный АИМ лок торса и камеры на цель
+                        local targetPos = state.Target.Position
+                        root.CFrame = CFrame.new(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
+                        Workspace.CurrentCamera.CFrame = CFrame.new(Workspace.CurrentCamera.CFrame.Position, targetPos)
+                        fireBlaster()
+                    end
+                end
+            else
+                -- Если миниигра не идет, плавно проверяем ТП к воротам Manor/Ивента
+                if state.Teleport and tick() - state.LastTP > 5 then
+                    for _, obj in pairs(Workspace:GetDescendants()) do
+                        if obj:IsA("BasePart") and (string.find(obj.Name, "Manor") or string.find(obj.Name, "Portal") or string.find(obj.Name, "Halloween")) then
+                            teleportTo(obj.Position)
+                            state.LastTP = tick()
+                            break
+                        end
+                    end
                 end
             end
-        else
-            if state.Teleport and tick() - state.LastTP > 5 then
-                for _, obj in pairs(Workspace:GetDescendants()) do
-                    if obj:IsA("BasePart") and (string.find(obj.Name, "Halloween") or string.find(obj.Name, "Event Portal") or string.find(obj.Name, "GhostGalleryEntrance")) then
-                        teleportTo(obj.Position)
-                        state.LastTP = tick()
-                        break
+        end
+        if state.Queue and tick() - state.LastQueue > 2 then
+            for _, obj in pairs(Workspace:GetDescendants()) do
+                if obj:IsA("ProximityPrompt") and (string.find(obj.ObjectText, "Join") or string.find(obj.ActionText, "Join")) then
+                    local character = LocalPlayer.Character
+                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    if root and (root.Position - obj.Parent.Position).Magnitude < 25 then
+                        fireProximityPrompt(obj)
+                        state.LastQueue = tick()
                     end
                 end
             end
         end
     end
-
-    if state.Queue and tick() - state.LastQueue > 3 then
-        for _, obj in pairs(Workspace:GetDescendants()) do
-            if obj:IsA("ProximityPrompt") and (string.find(obj.ObjectText, "Join") or string.find(obj.ActionText, "Join")) then
-                local character = LocalPlayer.Character
-                local root = character and character:FindFirstChild("HumanoidRootPart")
-                if root and (root.Position - obj.Parent.Position).Magnitude < 15 then
-                    fireProximityPrompt(obj)
-                    state.LastQueue = tick()
-                end
-            end
-        end
-    end
-end
 end)
 
 task.spawn(function()
-while state.Alive do
-    task.wait(10)
-    if state.AntiAFK then
-        pcall(function()
-            VirtualUser:Button2Down(Vector2.new(0,0), Workspace.CurrentCamera.CFrame)
-            task.wait(0.2)
-            VirtualUser:Button2Up(Vector2.new(0,0), Workspace.CurrentCamera.CFrame)
-        end)
+    while state.Alive do
+        task.wait(10)
+        if state.AntiAFK then
+            pcall(function()
+                VirtualUser:Button2Down(Vector2.new(0,0), Workspace.CurrentCamera.CFrame)
+                task.wait(0.2)
+                VirtualUser:Button2Up(Vector2.new(0,0), Workspace.CurrentCamera.CFrame)
+            end)
+        end
     end
-end
 end)
 
 state.Stop = function()
-state.Alive = false
-if gui then gui:Destroy() end
+    state.Alive = false
+    if gui then gui:Destroy() end
 end
 
+-- ОГРАНИЧЕННЫЙ ДРАГ ШАПКИ HEADER
 local dragging, dragInput, dragStart, startPos
 UserInputService.InputBegan:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-    local mousePos = UserInputService:GetMouseLocation()
-    if mousePos.X >= header.AbsolutePosition.X and mousePos.X <= header.AbsolutePosition.X + header.AbsoluteSize.X and
-       mousePos.Y >= header.AbsolutePosition.Y and mousePos.Y <= header.AbsolutePosition.Y + header.AbsoluteSize.Y then
-        dragging = true
-        dragStart = input.Position
-        startPos = shadow.Position
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        local mousePos = UserInputService:GetMouseLocation()
+        if mousePos.X >= header.AbsolutePosition.X and mousePos.X <= header.AbsolutePosition.X + header.AbsoluteSize.X and
+           mousePos.Y >= header.AbsolutePosition.Y and mousePos.Y <= header.AbsolutePosition.Y + header.AbsoluteSize.Y then
+            dragging = true
+            dragStart = input.Position
+            startPos = shadow.Position
+        end
     end
-end
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-    dragInput = input
-end
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
 end)
 
 RunService.RenderStepped:Connect(function()
-if dragging and dragInput then
-    local delta = dragInput.Position - dragStart
-    shadow.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
+    if dragging and dragInput then
+        local delta = dragInput.Position - dragStart
+        shadow.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-    dragging = false
-end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
 end)
+local function fireBlaster()
