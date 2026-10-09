@@ -1,7 +1,3 @@
--- CandyFarm | Ghost Gallery 2026 | UI v0.3.1 (DeltaX startup fix)
--- Static script: NO HttpGet, NO loadstring, NO webhook, NO network calls.
--- Third-party Adopt Me internals are NOT known. Assistance features are best-effort.
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -21,11 +17,7 @@ end
 local state = {
     Alive = true, Hunt = false, Teleport = false, Shoot = false,
     Queue = false, AntiAFK = false, PetHints = false,
-    Target = nil, TargetModel = nil, LockedAt = 0, LostSince = nil,
-    ShotsOnTarget = 0, Cleared = 0, LastScan = 0,
-    LastShot = 0, LastTP = 0, LastQueue = 0, LastNeeds = 0,
-    NeedInfo = "Not scanned", Message = "Ready",
-    Connections = {}
+    Target = nil, TargetModel = nil, LastShot = 0, LastTP = 0, LastQueue = 0
 }
 sharedEnv.CandyFarm2026 = state
 
@@ -37,9 +29,7 @@ local C = {
     Purple = Color3.fromRGB(172, 100, 255),
     Orange = Color3.fromRGB(255, 165, 75),
     Text = Color3.fromRGB(250, 244, 255),
-    Muted = Color3.fromRGB(170, 154, 193),
-    Green = Color3.fromRGB(100, 230, 166),
-    Red = Color3.fromRGB(248, 105, 127)
+    Muted = Color3.fromRGB(170, 154, 193)
 }
 
 local function corner(parent, radius)
@@ -73,7 +63,6 @@ local function text(parent, value, size, color, bold)
     t.TextColor3 = color or C.Text
     t.TextXAlignment = Enum.TextXAlignment.Left
     t.TextYAlignment = Enum.TextYAlignment.Center
-    t.TextTruncate = Enum.TextTruncate.AtEnd
     t.Parent = parent
     return t
 end
@@ -96,7 +85,6 @@ gui.Name = "CandyFarm_GhostGallery_2026"
 gui.ResetOnSpawn = false
 gui.IgnoreGuiInset = true
 gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-gui.DisplayOrder = 99
 gui.Parent = PlayerGui
 
 local shadow = Instance.new("Frame")
@@ -118,11 +106,6 @@ main.Parent = shadow
 corner(main, 17)
 stroke(main, C.Purple, .52, 1.4)
 
-local maxWidth = math.min(1, (Workspace.CurrentCamera.ViewportSize.X - 24) / 370)
-local scale = Instance.new("UIScale")
-scale.Scale = math.max(.68, maxWidth)
-scale.Parent = shadow
-
 local header = Instance.new("Frame")
 header.Size = UDim2.new(1,0,0,88)
 header.BackgroundColor3 = C.Panel
@@ -134,13 +117,6 @@ hgrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(75,
 hgrad.Rotation = 15
 hgrad.Parent = header
 
-local accent = Instance.new("Frame")
-accent.Size = UDim2.new(1,0,0,4)
-accent.BackgroundColor3 = C.Purple
-accent.BorderSizePixel = 0
-accent.Parent = main
-corner(accent, 3)
-
 local pumpkin = text(header, "C", 31, C.Orange, true)
 pumpkin.Position = UDim2.fromOffset(16,12)
 pumpkin.Size = UDim2.fromOffset(35,40)
@@ -149,128 +125,100 @@ local title = text(header, "CANDYFARM", 20, C.Text, true)
 title.Position = UDim2.fromOffset(55,11)
 title.Size = UDim2.fromOffset(196,30)
 
-local subtitle = text(header, "GHOST GALLERY  /  HALLOWEEN 2026", 10, C.Muted, true)
+local subtitle = text(header, "GHOST GALLERY  /  2026", 10, C.Muted, true)
 subtitle.Position = UDim2.fromOffset(56,41)
 subtitle.Size = UDim2.fromOffset(235,21)
-
-local version = text(header,"v0.3.1",10,C.Orange,true)
-version.Position = UDim2.fromOffset(16,60)
-version.Size = UDim2.fromOffset(50,20)
 
 local close = button(header,"X", Color3.fromRGB(115,47,74))
 close.Position = UDim2.fromOffset(311,14)
 close.Size = UDim2.fromOffset(27,27)
 close.MouseButton1Click:Connect(function() gui:Destroy() state.Alive = false end)
 
-local minimize = button(header,"-",C.Surface2)
-minimize.Position = UDim2.fromOffset(278,14)
-minimize.Size = UDim2.fromOffset(27,27)
-
 local tabs = Instance.new("Frame")
-tabs.BackgroundTransparency=1
-tabs.Position=UDim2.fromOffset(12,99)
-tabs.Size=UDim2.new(1,-24,0,36)
-tabs.Parent=main
+tabs.BackgroundTransparency = 1
+tabs.Position = UDim2.fromOffset(12,99)
+tabs.Size = UDim2.new(1,-24,0,36)
+tabs.Parent = main
 
 local tabGhost = button(tabs,"GHOST GALLERY",C.Purple)
 tabGhost.Size = UDim2.new(.5,-4,1,0)
 
 local tabPet = button(tabs,"PET / STATUS",C.Surface)
-tabPet.Size=UDim2.new(.5,-4,1,0)
-tabPet.Position=UDim2.new(.5,4,0,0)
+tabPet.Size = UDim2.new(.5,-4,1,0)
+tabPet.Position = UDim2.new(.5,4,0,0)
 
 local content = Instance.new("Frame")
-content.Position=UDim2.fromOffset(12,144)
-content.Size=UDim2.new(1,-24,0,219)
-content.BackgroundTransparency=1
-content.Parent=main
+content.Position = UDim2.fromOffset(12,144)
+content.Size = UDim2.new(1,-24,0,219)
+content.BackgroundTransparency = 1
+content.Parent = main
 
 local ghosts = Instance.new("Frame")
-ghosts.Size=UDim2.fromScale(1,1)
-ghosts.BackgroundTransparency=1
-ghosts.Parent=content
+ghosts.Size = UDim2.fromScale(1,1)
+ghosts.BackgroundTransparency = 1
+ghosts.Parent = content
 
 local pets = Instance.new("Frame")
-pets.Size=UDim2.fromScale(1,1)
-pets.BackgroundTransparency=1
-pets.Visible=false
-pets.Parent=content
+pets.Size = UDim2.fromScale(1,1)
+pets.BackgroundTransparency = 1
+pets.Visible = false
+pets.Parent = content
 
-local function selectTab(which)
-    ghosts.Visible=(which=="ghost")
-    pets.Visible=(which=="pet")
-    tw(tabGhost,{BackgroundColor3=(which=="ghost") and C.Purple or C.Surface})
-    tw(tabPet,{BackgroundColor3=(which=="pet") and C.Purple or C.Surface})
-end
-tabGhost.MouseButton1Click:Connect(function() selectTab("ghost") end)
-tabPet.MouseButton1Click:Connect(function() selectTab("pet") end)
+tabGhost.MouseButton1Click:Connect(function()
+    ghosts.Visible = true; pets.Visible = false
+    tabGhost.BackgroundColor3 = C.Purple; tabPet.BackgroundColor3 = C.Surface
+end)
+tabPet.MouseButton1Click:Connect(function()
+    ghosts.Visible = false; pets.Visible = true
+    tabGhost.BackgroundColor3 = C.Surface; tabPet.BackgroundColor3 = C.Purple
+end)
 
 local function setting(parent, index, name, description, key)
-    local row=Instance.new("Frame")
-    row.Size=UDim2.new(1,0,0,48)
-    row.Position=UDim2.fromOffset(0,(index-1)*54)
-    row.BackgroundColor3=C.Panel
-    row.Parent=parent
+    local row = Instance.new("Frame")
+    row.Size = UDim2.new(1,0,0,48)
+    row.Position = UDim2.fromOffset(0,(index-1)*54)
+    row.BackgroundColor3 = C.Panel
+    row.Parent = parent
     corner(row,10)
-    local lab=text(row,name,13,C.Text,true)
-    lab.Position=UDim2.fromOffset(12,5)
-    lab.Size=UDim2.new(1,-95,0,21)
-    local sub=text(row,description,10,C.Muted,false)
-    sub.Position=UDim2.fromOffset(12,25)
-    sub.Size=UDim2.new(1,-92,0,16)
-    local b=button(row,"OFF",C.Surface2)
-    b.Position=UDim2.new(1,-70,0,9)
-    b.Size=UDim2.fromOffset(60,30)
+    local lab = text(row,name,13,C.Text,true)
+    lab.Position = UDim2.fromOffset(12,5)
+    lab.Size = UDim2.new(1,-95,0,21)
+    local sub = text(row,description,10,C.Muted,false)
+    sub.Position = UDim2.fromOffset(12,25)
+    sub.Size = UDim2.new(1,-92,0,16)
+    local b = button(row,"OFF",C.Surface2)
+    b.Position = UDim2.new(1,-70,0,9)
+    b.Size = UDim2.fromOffset(60,30)
     local function refresh()
-        b.Text=state[key] and "ON" or "OFF"
-        tw(b,{BackgroundColor3=state[key] and C.Purple or C.Surface2})
+        b.Text = state[key] and "ON" or "OFF"
+        tw(b,{BackgroundColor3 = state[key] and C.Purple or C.Surface2})
     end
     b.MouseButton1Click:Connect(function()
-        state[key]=not state[key]
+        state[key] = not state[key]
         refresh()
     end)
     refresh()
 end
 
-setting(ghosts,1,"Target lock","Stay on one ghost until defeated","Hunt")
-setting(ghosts,2,"Teleport to target","Move close to the LOCKED ghost","Teleport")
-setting(ghosts,3,"Aim + blaster","Face and shoot the same ghost","Shoot")
-setting(ghosts,4,"Queue prompt","Use nearby JOIN prompts only","Queue")
-setting(pets,1,"Anti AFK","Attempt to prevent idle disconnect","AntiAFK")
-setting(pets,2,"Pet needs hints","Look for visible pet task labels","PetHints")
+setting(ghosts, 1, "Target lock", "Stay on one ghost until defeated", "Hunt")
+setting(ghosts, 2, "Teleport to target", "Move close to ghosts/furniture", "Teleport")
+setting(ghosts, 3, "Aim + blaster", "Face and shoot target automatically", "Shoot")
+setting(ghosts, 4, "Queue prompt", "Auto join minigame prompts", "Queue")
+setting(pets, 1, "Anti AFK", "Attempt to prevent idle disconnect", "AntiAFK")
 
-local notice = text(pets,"Ghost targeting/defeat is best-effort.\nNo verified Adopt Me internals.",11,C.Orange,false)
-notice.Position = UDim2.fromOffset(0, 110)
-notice.Size = UDim2.new(1,0,0,40)
-
--- // ОБНОВЛЕННАЯ СИСТЕМА СКАНИРОВАНИЯ ИГРЫ // --
-
-local function getClosestGhostOrFurniture()
-    local character = LocalPlayer.Character
-    if not character then return nil end
-    local root = character:FindFirstChild("HumanoidRootPart")
+local function getClosestTarget()
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
-
     local closest, minDist = nil, math.huge
-    
-    -- Сканируем всё игровое поле на наличие объектов мини-игры
-    for _, obj in pairs(Workspace:GetDescendants()) do
-        local isValidTarget = false
-        -- Проверка 1: Летящие призраки или босс
-        if obj:IsA("Model") and (string.find(obj.Name, "Ghost") or string.find(obj.Name, "Boss") or obj:FindFirstChild("Ghost")) then
-            isValidTarget = true
-        -- Проверка 2: Одержимая подсвеченная мебель (внутри миниигры)
-        elseif obj:IsA("Model") and (obj:FindFirstChild("Highlight") or string.find(obj.Name, "Possessed") or obj:FindFirstChild("Furniture")) then
-            isValidTarget = true
-        end
-
-        if isValidTarget then
-            local p = obj:FindFirstChildWhichIsA("BasePart") or obj:FindFirstChildHorizontalAlignment()
-            if p then
-                local dist = (root.Position - p.Position).Magnitude
-                if dist < minDist and dist < 300 then -- Игнорируем объекты за пределами арены
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("Model") and (v:FindFirstChild("Highlight") or string.find(v.Name, "Ghost") or string.find(v.Name, "Possessed")) then
+            local part = v:FindFirstChildWhichIsA("BasePart")
+            if part then
+                local dist = (root.Position - part.Position).Magnitude
+                if dist < minDist and dist < 400 then
                     minDist = dist
-                    closest = p
+                    closest = part
                 end
             end
         end
@@ -278,70 +226,55 @@ local function getClosestGhostOrFurniture()
     return closest
 end
 
-local function teleportTo(position)
-    local character = LocalPlayer.Character
-    local root = character and character:FindFirstChild("HumanoidRootPart")
+local function safeTeleport(pos)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
     if root then
-        root.CFrame = CFrame.new(position + Vector3.new(0, 4, 0))
+        local tInfo = TweenInfo.new(0.1, Enum.EasingStyle.Linear)
+        local tween = TweenService:Create(root, tInfo, {CFrame = CFrame.new(pos + Vector3.new(0, 3, 2))})
+        tween:Play()
     end
 end
-local function fireBlaster()
-    local character = LocalPlayer.Character
-    if not character then return end
-    -- Авто-активация бластера, если он экипирован в руке
-    local tool = character:FindFirstChildOfClass("Tool")
+
+local function zapBlaster()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local tool = char:FindFirstChildOfClass("Tool")
     if tool then
         tool:Activate()
     else
-        -- Если бластер в инвентаре, пытаемся взять его в руки
         local backpackTool = LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
         if backpackTool then
-            backpackTool.Parent = character
+            backpackTool.Parent = char
         end
     end
     state.LastShot = tick()
 end
 
-local function fireProximityPrompt(prompt)
-    if fireprompttrigger then
-        fireprompttrigger(prompt)
-    else
-        prompt:InputBegan(Enum.UserInputType.Keyboard)
-        task.wait(0.1)
-        prompt:InputEnded(Enum.UserInputType.Keyboard)
-    end
-end
-
--- // ГЛАВНЫЕ ПОТОКИ АВТОМАТИЗАЦИИ // --
 task.spawn(function()
     while state.Alive do
-        task.wait(0.05) -- Увеличена скорость тиков для моментального реагирования аима
+        task.wait(0.05)
         if state.Hunt then
             if not state.Target or not state.Target:Parent() then
-                state.Target = getClosestGhostOrFurniture()
+                state.Target = getClosestTarget()
             end
             if state.Target then
                 if state.Teleport then
-                    -- Держим дистанцию над целью, чтобы не проваливаться сквозь карту
-                    teleportTo(state.Target.Position + Vector3.new(0, 2, 3))
+                    safeTeleport(state.Target.Position)
                 end
                 if state.Shoot and tick() - state.LastShot > 0.3 then
-                    local character = LocalPlayer.Character
-                    local root = character and character:FindFirstChild("HumanoidRootPart")
+                    local char = LocalPlayer.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
                     if root then
-                        -- Моментальный и точный АИМ лок торса и камеры на цель
-                        local targetPos = state.Target.Position
-                        root.CFrame = CFrame.new(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
-                        Workspace.CurrentCamera.CFrame = CFrame.new(Workspace.CurrentCamera.CFrame.Position, targetPos)
-                        fireBlaster()
+                        root.CFrame = CFrame.new(root.Position, Vector3.new(state.Target.Position.X, root.Position.Y, state.Target.Position.Z))
+                        zapBlaster()
                     end
                 end
             else
-                -- Если миниигра не идет, плавно проверяем ТП к воротам Manor/Ивента
-                if state.Teleport and tick() - state.LastTP > 5 then
+                if state.Teleport and tick() - state.LastTP > 4 then
                     for _, obj in pairs(Workspace:GetDescendants()) do
-                        if obj:IsA("BasePart") and (string.find(obj.Name, "Manor") or string.find(obj.Name, "Portal") or string.find(obj.Name, "Halloween")) then
-                            teleportTo(obj.Position)
+                        if obj:IsA("BasePart") and (string.find(obj.Name, "Manor") or string.find(obj.Name, "Halloween") or string.find(obj.Name, "Portal")) then
+                            safeTeleport(obj.Position)
                             state.LastTP = tick()
                             break
                         end
@@ -351,12 +284,17 @@ task.spawn(function()
         end
         if state.Queue and tick() - state.LastQueue > 2 then
             for _, obj in pairs(Workspace:GetDescendants()) do
-                if obj:IsA("ProximityPrompt") and (string.find(obj.ObjectText, "Join") or string.find(obj.ActionText, "Join")) then
-                    local character = LocalPlayer.Character
-                    local root = character and character:FindFirstChild("HumanoidRootPart")
-                    if root and (root.Position - obj.Parent.Position).Magnitude < 25 then
-                        fireProximityPrompt(obj)
-                        state.LastQueue = tick()
+                    if obj:IsA("ProximityPrompt") and string.find(obj.ObjectText or obj.ActionText or "", "Join") then
+                        local char = LocalPlayer.Character
+                        local root = char and char:FindFirstChild("HumanoidRootPart")
+                        if root and (root.Position - obj.Parent.Position).Magnitude < 30 then
+                            if fireprompttrigger then 
+                                fireprompttrigger(obj) 
+                            else 
+                                obj:InputBegan(Enum.UserInputType.Keyboard) 
+                            end
+                            state.LastQueue = tick()
+                        end
                     end
                 end
             end
@@ -370,7 +308,7 @@ task.spawn(function()
         if state.AntiAFK then
             pcall(function()
                 VirtualUser:Button2Down(Vector2.new(0,0), Workspace.CurrentCamera.CFrame)
-                task.wait(0.2)
+                task.wait(0.1)
                 VirtualUser:Button2Up(Vector2.new(0,0), Workspace.CurrentCamera.CFrame)
             end)
         end
@@ -382,7 +320,6 @@ state.Stop = function()
     if gui then gui:Destroy() end
 end
 
--- ОГРАНИЧЕННЫЙ ДРАГ ШАПКИ HEADER
 local dragging, dragInput, dragStart, startPos
 UserInputService.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -414,4 +351,3 @@ UserInputService.InputEnded:Connect(function(input)
         dragging = false
     end
 end)
-local function fireBlaster()
