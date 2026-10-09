@@ -8,6 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local Workspace = game:GetService("Workspace")
+
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui", 15)
 if not PlayerGui then return end
@@ -40,12 +41,14 @@ local C = {
     Green = Color3.fromRGB(100, 230, 166),
     Red = Color3.fromRGB(248, 105, 127)
 }
+
 local function corner(parent, radius)
     local u = Instance.new("UICorner")
     u.CornerRadius = UDim.new(0, radius or 12)
     u.Parent = parent
     return u
 end
+
 local function stroke(parent, color, alpha, thickness)
     local s = Instance.new("UIStroke")
     s.Color = color or C.Purple
@@ -54,11 +57,13 @@ local function stroke(parent, color, alpha, thickness)
     s.Parent = parent
     return s
 end
+
 local function tw(obj, props, speed)
     local anim = TweenService:Create(obj, TweenInfo.new(speed or .18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
     anim:Play()
     return anim
 end
+
 local function text(parent, value, size, color, bold)
     local t = Instance.new("TextLabel")
     t.BackgroundTransparency = 1
@@ -72,6 +77,7 @@ local function text(parent, value, size, color, bold)
     t.Parent = parent
     return t
 end
+
 local function button(parent, name, color)
     local b = Instance.new("TextButton")
     b.Text = name
@@ -111,6 +117,7 @@ main.BackgroundColor3 = C.BG
 main.Parent = shadow
 corner(main, 17)
 stroke(main, C.Purple, .52, 1.4)
+
 local maxWidth = math.min(1, (Workspace.CurrentCamera.ViewportSize.X - 24) / 370)
 local scale = Instance.new("UIScale")
 scale.Scale = math.max(.68, maxWidth)
@@ -121,10 +128,12 @@ header.Size = UDim2.new(1,0,0,88)
 header.BackgroundColor3 = C.Panel
 header.Parent = main
 corner(header, 17)
+
 local hgrad = Instance.new("UIGradient")
 hgrad.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Color3.fromRGB(75,40,111)), ColorSequenceKeypoint.new(1, C.Panel)})
 hgrad.Rotation = 15
 hgrad.Parent = header
+
 local accent = Instance.new("Frame")
 accent.Size = UDim2.new(1,0,0,4)
 accent.BackgroundColor3 = C.Purple
@@ -135,19 +144,24 @@ corner(accent, 3)
 local pumpkin = text(header, "C", 31, C.Orange, true)
 pumpkin.Position = UDim2.fromOffset(16,12)
 pumpkin.Size = UDim2.fromOffset(35,40)
+
 local title = text(header, "CANDYFARM", 20, C.Text, true)
 title.Position = UDim2.fromOffset(55,11)
 title.Size = UDim2.fromOffset(196,30)
+
 local subtitle = text(header, "GHOST GALLERY  /  HALLOWEEN 2026", 10, C.Muted, true)
 subtitle.Position = UDim2.fromOffset(56,41)
 subtitle.Size = UDim2.fromOffset(235,21)
+
 local version = text(header,"v0.3.1",10,C.Orange,true)
 version.Position = UDim2.fromOffset(16,60)
 version.Size = UDim2.fromOffset(50,20)
+
 local close = button(header,"X", Color3.fromRGB(115,47,74))
 close.Position = UDim2.fromOffset(311,14)
 close.Size = UDim2.fromOffset(27,27)
 close.MouseButton1Click:Connect(function() gui:Destroy() state.Alive = false end)
+
 local minimize = button(header,"-",C.Surface2)
 minimize.Position = UDim2.fromOffset(278,14)
 minimize.Size = UDim2.fromOffset(27,27)
@@ -157,8 +171,10 @@ tabs.BackgroundTransparency=1
 tabs.Position=UDim2.fromOffset(12,99)
 tabs.Size=UDim2.new(1,-24,0,36)
 tabs.Parent=main
+
 local tabGhost = button(tabs,"GHOST GALLERY",C.Purple)
 tabGhost.Size = UDim2.new(.5,-4,1,0)
+
 local tabPet = button(tabs,"PET / STATUS",C.Surface)
 tabPet.Size=UDim2.new(.5,-4,1,0)
 tabPet.Position=UDim2.new(.5,4,0,0)
@@ -168,15 +184,18 @@ content.Position=UDim2.fromOffset(12,144)
 content.Size=UDim2.new(1,-24,0,219)
 content.BackgroundTransparency=1
 content.Parent=main
+
 local ghosts = Instance.new("Frame")
 ghosts.Size=UDim2.fromScale(1,1)
 ghosts.BackgroundTransparency=1
 ghosts.Parent=content
+
 local pets = Instance.new("Frame")
 pets.Size=UDim2.fromScale(1,1)
 pets.BackgroundTransparency=1
 pets.Visible=false
 pets.Parent=content
+
 local function selectTab(which)
     ghosts.Visible=(which=="ghost")
     pets.Visible=(which=="pet")
@@ -280,7 +299,7 @@ task.spawn(function()
         
         if state.Hunt then
             if not state.Target or not state.Target:Parent() then
-                state.Target = getClosestGhost()
+            state.Target = getClosestGhost()
         end
 
         if state.Target then
@@ -295,6 +314,16 @@ task.spawn(function()
                 if root and targetPart then
                     root.CFrame = CFrame.new(root.Position, Vector3.new(targetPart.Position.X, root.Position.Y, targetPart.Position.Z))
                     fireBlaster()
+                end
+            end
+        else
+            if state.Teleport and tick() - state.LastTP > 5 then
+                for _, obj in pairs(Workspace:GetDescendants()) do
+                    if obj:IsA("BasePart") and (string.find(obj.Name, "Halloween") or string.find(obj.Name, "Event Portal") or string.find(obj.Name, "GhostGalleryEntrance")) then
+                        teleportTo(obj.Position)
+                        state.LastTP = tick()
+                        break
+                    end
                 end
             end
         end
@@ -336,13 +365,12 @@ end
 local dragging, dragInput, dragStart, startPos
 UserInputService.InputBegan:Connect(function(input)
 if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-    local guiObj = shadow
-    local t = UserInputService:GetMouseLocation()
-    if t.X >= guiObj.AbsolutePosition.X and t.X <= guiObj.AbsolutePosition.X + guiObj.AbsoluteSize.X and
-       t.Y >= guiObj.AbsolutePosition.Y and t.Y <= guiObj.AbsolutePosition.Y + guiObj.AbsoluteSize.Y then
+    local mousePos = UserInputService:GetMouseLocation()
+    if mousePos.X >= header.AbsolutePosition.X and mousePos.X <= header.AbsolutePosition.X + header.AbsoluteSize.X and
+       mousePos.Y >= header.AbsolutePosition.Y and mousePos.Y <= header.AbsolutePosition.Y + header.AbsoluteSize.Y then
         dragging = true
         dragStart = input.Position
-        startPos = guiObj.Position
+        startPos = shadow.Position
     end
 end
 end)
