@@ -144,11 +144,13 @@ subtitle.Size = UDim2.fromOffset(235,21)
 local version = text(header,"v0.3.1",10,C.Orange,true)
 version.Position = UDim2.fromOffset(16,60)
 version.Size = UDim2.fromOffset(50,20)
-
 local close = button(header,"X", Color3.fromRGB(115,47,74))
 close.Position = UDim2.fromOffset(311,14)
 close.Size = UDim2.fromOffset(27,27)
 close.MouseButton1Click:Connect(function() gui:Destroy() state.Alive = false end)
+local minimize = button(header,"-",C.Surface2)
+minimize.Position = UDim2.fromOffset(278,14)
+minimize.Size = UDim2.fromOffset(27,27)
 
 local tabs = Instance.new("Frame")
 tabs.BackgroundTransparency=1
@@ -175,7 +177,6 @@ pets.Size=UDim2.fromScale(1,1)
 pets.BackgroundTransparency=1
 pets.Visible=false
 pets.Parent=content
-
 local function selectTab(which)
     ghosts.Visible=(which=="ghost")
     pets.Visible=(which=="pet")
@@ -220,22 +221,20 @@ setting(pets,1,"Anti AFK","Attempt to prevent idle disconnect","AntiAFK")
 setting(pets,2,"Pet needs hints","Look for visible pet task labels","PetHints")
 
 local notice = text(pets,"Ghost targeting/defeat is best-effort.\nNo verified Adopt Me internals.",11,C.Orange,false)
-notice.Position = UDim2.fromOffset(0, 110)
+notice.Position = UDim2.fromOffset(0,110)
 notice.Size = UDim2.new(1,0,0,40)
 
--- // ЛОГИКА АВТОФАРМА (Безопасная симуляция ввода и ТП) // --
+-- // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ЛОГИКИ // --
 
--- Поиск призраков на карте по ключевым словам или тегам
 local function getClosestGhost()
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
     local root = character:FindFirstChild("HumanoidRootPart")
     if not root then return nil end
 
     local closest, minDist = nil, math.huge
-    -- Сканируем Workspace на наличие моделей призраков (обычно содержат "Ghost" в названии)
     for _, obj in pairs(Workspace:GetDescendants()) do
         if obj:IsA("Model") and (string.find(obj.Name, "Ghost") or string.find(obj.Name, "Призрак")) then
-            local p = obj:FindFirstChildWhichIsA("BasePart") or obj:FindFirstChildHorizontalAlignment()
+            local p = obj:FindFirstChildWhichIsA("BasePart")
             if p then
                 local dist = (root.Position - p.Position).Magnitude
                 if dist < minDist then
@@ -248,7 +247,6 @@ local function getClosestGhost()
     return closest
 end
 
--- Функция безопасного перемещения (Телепорт)
 local function teleportTo(position)
     local character = LocalPlayer.Character
     local root = character and character:FindFirstChild("HumanoidRootPart")
@@ -257,21 +255,22 @@ local function teleportTo(position)
     end
 end
 
--- Попытка симуляции выстрела из лазера / бластера
 local function fireBlaster()
-    -- Нажатие клавиши 'E' или клик мыши для симуляции выстрела инструмента
     VirtualUser:CaptureController()
     VirtualUser:Button1Down(Vector2.new(0,0), Workspace.CurrentCamera.CFrame)
     state.LastShot = tick()
 end
 
--- Главный цикл автоматизации
-task.spawn(function()
-    while state.Alive do
+local function fireProximityPrompt(prompt)
+    if fireprompttrigger then
+        fireprompttrigger(prompt)
+    else
+        prompt:InputBegan(Enum.UserInputType.Keyboard)
         task.wait(0.1)
-        
-        -- 1. Логика поиска и следования за целью (Target Lock & Teleport)
-        if state.Hunt then
+        prompt:InputEnded(Enum.UserInputType.Keyboard)
+    end
+end
+
 -- // ГЛАВНЫЕ ПОТОКИ АВТОМАТИЗАЦИИ // --
 
 task.spawn(function()
@@ -281,8 +280,7 @@ task.spawn(function()
         -- 1. Логика фиксации цели и телепортации
         if state.Hunt then
             if not state.Target or not state.Target:Parent() then
-                state.Target = getClosestGhost()
-            end
+            state.Target = getClosestGhost()
             if state.Target then
                 local targetPart = state.Target:FindFirstChildWhichIsA("BasePart")
                 if targetPart and state.Teleport then
@@ -301,7 +299,6 @@ task.spawn(function()
                 end
             end
         end
-        
         -- 3. Автоматическое вхождение в очередь мини-игры (Queue Prompt)
         if state.Queue and tick() - state.LastQueue > 3 then
             for _, obj in pairs(Workspace:GetDescendants()) do
@@ -327,7 +324,7 @@ task.spawn(function()
                 VirtualUser:Button2Down(Vector2.new(0,0), Workspace.CurrentCamera.CFrame)
                 task.wait(0.2)
                 VirtualUser:Button2Up(Vector2.new(0,0), Workspace.CurrentCamera.CFrame)
-             pcall()
+            end)
         end
     end
 end)
